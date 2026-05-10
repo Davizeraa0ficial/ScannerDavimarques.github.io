@@ -1,66 +1,124 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <!-- SEO: Ajuda o Google a encontrar você -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner de Arte Rupestre - Davi Marques</title>
-    <meta name="description" content="Projeto escolar de arte rupestre digital criado por Davi Marques. Transformando carvão em tecnologia.">
-    <meta name="author" content="Davi Marques">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- SEO para a Prof. te achar no Google -->
+    <title>Scanner Rupestre IA - Davi Marques</title>
+    <meta name="description" content="Scanner inteligente de arte rupestre criado por Davi Marques. Identifica padrões de carvão em papel pardo.">
     
     <style>
-        body { margin: 0; background: #2b1d0e; color: #f3e5ab; font-family: 'Courier New', Courier, monospace; text-align: center; overflow: hidden; }
-        video { width: 100vw; height: 100vh; object-fit: cover; position: fixed; top: 0; left: 0; filter: sepia(0.5); }
-        #mira { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 240px; height: 240px; border: 5px solid #8b4513; border-radius: 15px; z-index: 10; box-shadow: 0 0 0 5000px rgba(0,0,0,0.7); pointer-events: none; }
-        .info-topo { position: fixed; top: 0; width: 100%; background: rgba(43, 29, 14, 0.9); padding: 15px; z-index: 100; border-bottom: 2px solid #8b4513; }
-        #btn-scan { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 110; padding: 20px 40px; background: #8b4513; color: #f3e5ab; border: 2px solid #f3e5ab; border-radius: 10px; font-weight: bold; font-size: 18px; cursor: pointer; }
+        body { margin: 0; background: #2b1d0e; color: #f3e5ab; font-family: sans-serif; text-align: center; overflow: hidden; }
+        video { width: 100vw; height: 100vh; object-fit: cover; position: fixed; top: 0; left: 0; }
+        
+        /* Moldura do Scanner */
+        #mira { 
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 240px; height: 240px; border: 4px solid #fff; border-radius: 15px; 
+            z-index: 10; box-shadow: 0 0 0 5000px rgba(0,0,0,0.7); pointer-events: none;
+            transition: border-color 0.3s;
+        }
+
+        /* Barra de Progresso Superior */
+        #barra-ia { position: fixed; top: 0; left: 0; height: 6px; background: #00ff00; width: 0%; z-index: 101; transition: width 0.1s; }
+
+        .painel { position: fixed; top: 15px; width: 100%; z-index: 100; background: rgba(43, 29, 14, 0.9); padding: 10px; border-bottom: 2px solid #8b4513; }
+        
+        .controles { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 110; }
+        button { padding: 15px 20px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; font-size: 14px; }
+        #btn-scan { background: #00ff00; color: #000; box-shadow: 0 0 15px #00ff00; }
+        #btn-reg { background: #fff; color: #000; }
+        
+        #stats { font-size: 11px; margin-top: 5px; color: #00ff00; }
     </style>
 </head>
 <body>
 
-    <div class="info-topo">
-        <h1>PROJETO DAVI MARQUES</h1>
-        <small>Scanner de Arte Rupestre Moderna</small>
+    <div id="barra-ia"></div>
+    <div class="painel">
+        <b>DAVIMARQUES_IA_VISION</b><br>
+        <div id="status">Aproxime o desenho de carvão</div>
+        <div id="stats">Padrão: 0% | Cor: 0%</div>
     </div>
 
     <div id="mira"></div>
     <video id="video" playsinline></video>
     <canvas id="proc" style="display:none;"></canvas>
-    
-    <button id="btn-scan" onclick="escanear()">IDENTIFICAR PINTURA</button>
+
+    <div class="controles">
+        <button id="btn-reg" onclick="registrar()">SALVAR ORIGINAL</button>
+        <button id="btn-scan" onclick="comparar()">ESCANEAR (65%)</button>
+    </div>
 
     <script>
         const video = document.getElementById('video');
-        const procCanvas = document.getElementById('proc');
+        const canvas = document.getElementById('proc');
+        const ctx = canvas.getContext('2d');
+        const statusTxt = document.getElementById('status');
+        const statsTxt = document.getElementById('stats');
+        const barra = document.getElementById('barra-ia');
 
-        // SITE PARA ONDE VAI REDIRECIONAR
-        const LINK_FINAL = "https://www.google.com";
+        let db = JSON.parse(localStorage.getItem('rupestre_db_davi')) || [];
 
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => {
             video.srcObject = s; video.play();
         });
 
-        function escanear() {
-            const ctx = procCanvas.getContext('2d');
-            procCanvas.width = 50; procCanvas.height = 50;
-            ctx.drawImage(video, video.videoWidth/2-120, video.videoHeight/2-120, 240, 240, 0, 0, 50, 50);
+        // Função de Inteligência: Extrai Cor e Padrão (DNA)
+        function extrairIA() {
+            canvas.width = 40; canvas.height = 40; // Grade de 1600 pontos
+            ctx.drawImage(video, video.videoWidth/2-120, video.videoHeight/2-120, 240, 240, 0, 0, 40, 40);
+            const data = ctx.getImageData(0, 0, 40, 40).data;
             
-            const imgData = ctx.getImageData(0, 0, 50, 50).data;
-            let pretos = 0;
-
-            for (let i = 0; i < imgData.length; i += 4) {
-                const brilho = (imgData[i] + imgData[i+1] + imgData[i+2]) / 3;
-                if (brilho < 85) pretos++; 
+            let dna = []; let r=0, g=0, b=0, total=0;
+            for (let i = 0; i < data.length; i += 4) {
+                const brilho = (data[i] + data[i+1] + data[i+2]) / 3;
+                if (brilho < 90) { // Detecta o traço do carvão
+                    dna.push(1); r += data[i]; g += data[i+1]; b += data[i+2]; total++;
+                } else { dna.push(0); }
             }
+            return { dna, cor: [r/total||0, g/total||0, b/total||0], total };
+        }
 
-            // Regra: Se detectar a massa do desenho de carvão
-            if (pretos > 375 && pretos < 1750) {
-                alert("Padrão Identificado! Davi Marques redirecionando...");
-                window.location.href = LINK_FINAL;
+        function registrar() {
+            const captura = extrairIA();
+            if (captura.total < 50) return alert("IA não viu o desenho. Reforce o carvão!");
+            let link = prompt("Site para este desenho (Davi Marques):", "https://google.com");
+            if (link) {
+                db.push({ padrao: captura.dna, rgb: captura.cor, url: link });
+                localStorage.setItem('rupestre_db_davi', JSON.stringify(db));
+                alert("REGISTRADO! A IA salvou o padrão e a cor do carvão.");
+            }
+        }
+
+        function comparar() {
+            const atual = extrairIA();
+            let melhorMatch = { sim: 0, link: "" };
+
+            db.forEach(item => {
+                // Compara Padrão (DNA de 1600 pontos)
+                let acertos = 0;
+                for(let i=0; i<item.padrao.length; i++) { if(item.padrao[i] === atual.dna[i]) acertos++; }
+                let simPadrao = (acertos / item.padrao.length) * 100;
+
+                // Compara Cor (Proximidade)
+                let dist = Math.abs(item.rgb[0] - atual.cor[0]) + Math.abs(item.rgb[1] - atual.cor[1]) + Math.abs(item.rgb[2] - atual.cor[2]);
+                let simCor = Math.max(0, 100 - (dist / 3));
+
+                if (simPadrao > melhorMatch.sim) melhorMatch = { sim: simPadrao, cor: simCor, link: item.url };
+            });
+
+            statsTxt.innerText = `Padrão: ${Math.round(melhorMatch.sim)}% | Cor: ${Math.round(melhorMatch.cor)}%`;
+            barra.style.width = melhorMatch.sim + "%";
+
+            // REGRA DOS 65% (Ajuste inteligente de Davi)
+            if (melhorMatch.sim >= 65 && melhorMatch.cor >= 60) {
+                statusTxt.innerHTML = "<b style='color:#00ff00'>MATCH ENCONTRADO! REDIRECIONANDO...</b>";
+                setTimeout(() => window.location.href = melhorMatch.link, 1000);
             } else {
-                alert("Erro: Centralize o carvão no quadrado verde.");
+                alert("Padrão não bate 65%. Centralize melhor o desenho!");
             }
         }
     </script>
 </body>
-</html>
+</html>            
