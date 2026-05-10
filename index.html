@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <!-- SEO: Ajuda o Google a encontrar você -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner de Arte Rupestre - Davi Marques</title>
+    <meta name="description" content="Projeto escolar de arte rupestre digital criado por Davi Marques. Transformando carvão em tecnologia.">
+    <meta name="author" content="Davi Marques">
+    
+    <style>
+        body { margin: 0; background: #2b1d0e; color: #f3e5ab; font-family: 'Courier New', Courier, monospace; text-align: center; overflow: hidden; }
+        video { width: 100vw; height: 100vh; object-fit: cover; position: fixed; top: 0; left: 0; filter: sepia(0.5); }
+        #mira { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 240px; height: 240px; border: 5px solid #8b4513; border-radius: 15px; z-index: 10; box-shadow: 0 0 0 5000px rgba(0,0,0,0.7); pointer-events: none; }
+        .info-topo { position: fixed; top: 0; width: 100%; background: rgba(43, 29, 14, 0.9); padding: 15px; z-index: 100; border-bottom: 2px solid #8b4513; }
+        #btn-scan { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 110; padding: 20px 40px; background: #8b4513; color: #f3e5ab; border: 2px solid #f3e5ab; border-radius: 10px; font-weight: bold; font-size: 18px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="info-topo">
+        <h1>PROJETO DAVI MARQUES</h1>
+        <small>Scanner de Arte Rupestre Moderna</small>
+    </div>
+
+    <div id="mira"></div>
+    <video id="video" playsinline></video>
+    <canvas id="proc" style="display:none;"></canvas>
+    
+    <button id="btn-scan" onclick="escanear()">IDENTIFICAR PINTURA</button>
+
+    <script>
+        const video = document.getElementById('video');
+        const procCanvas = document.getElementById('proc');
+
+        // SITE PARA ONDE VAI REDIRECIONAR
+        const LINK_FINAL = "https://www.google.com";
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => {
+            video.srcObject = s; video.play();
+        });
+
+        function escanear() {
+            const ctx = procCanvas.getContext('2d');
+            procCanvas.width = 50; procCanvas.height = 50;
+            ctx.drawImage(video, video.videoWidth/2-120, video.videoHeight/2-120, 240, 240, 0, 0, 50, 50);
+            
+            const imgData = ctx.getImageData(0, 0, 50, 50).data;
+            let pretos = 0;
+
+            for (let i = 0; i < imgData.length; i += 4) {
+                const brilho = (imgData[i] + imgData[i+1] + imgData[i+2]) / 3;
+                if (brilho < 85) pretos++; 
+            }
+
+            // Regra: Se detectar a massa do desenho de carvão
+            if (pretos > 375 && pretos < 1750) {
+                alert("Padrão Identificado! Davi Marques redirecionando...");
+                window.location.href = LINK_FINAL;
+            } else {
+                alert("Erro: Centralize o carvão no quadrado verde.");
+            }
+        }
+    </script>
+</body>
+</html>
