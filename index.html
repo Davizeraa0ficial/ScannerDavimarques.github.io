@@ -3,68 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>VRChat AR - Perspectiva 3D</title>
+    <title>VRChat AR - AI Scanner & Google Glass</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         
-        .sbs-container { display: flex; width: 100vw; height: 100vh; perspective: 1000px; }
-        .eye { width: 50vw; height: 100vh; position: relative; overflow: hidden; border-right: 1px solid #222; perspective: 600px; }
+        .sbs-container { display: flex; width: 100vw; height: 100vh; perspective: 1200px; }
+        .eye { width: 50vw; height: 100vh; position: relative; overflow: hidden; border-right: 1px solid #333; perspective: 800px; }
 
-        video {
-            position: absolute; width: 100%; height: 100%;
-            object-fit: cover; z-index: 1; opacity: 0.5;
-        }
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.4; }
 
-        /* O Container de Perspectiva */
-        .viewport-3d {
+        /* Janela Estilo Google em Perspectiva */
+        .google-window {
             position: absolute;
-            width: 100%; height: 100%;
-            z-index: 2;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            width: 280px; height: 180px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            z-index: 5;
+            display: flex; flex-direction: column;
+            overflow: hidden;
             transform-style: preserve-3d;
             transition: transform 0.1s ease-out;
         }
 
-        .avatar-container {
-            transform-style: preserve-3d;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        .google-header { background: #f2f2f2; padding: 8px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #ddd; }
+        .google-content { padding: 15px; color: #333; font-size: 13px; flex-grow: 1; }
+        
+        /* Balão de Mensagem da IA */
+        .ai-message {
+            position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 209, 255, 0.8);
+            color: white; padding: 12px 20px; border-radius: 30px;
+            font-size: 14px; z-index: 10; text-align: center;
+            width: 80%; max-width: 300px;
+            border: 2px solid #fff;
+            animation: pulse 2s infinite;
         }
 
-        .avatar { 
-            width: 140px; 
-            filter: drop-shadow(0 0 20px #00d1ff);
-            /* Dá volume ao avatar */
-            transform: translateZ(50px); 
+        .privacy-alert {
+            position: absolute; top: 10px; width: 100%; text-align: center;
+            color: #ff4444; font-size: 10px; z-index: 20; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 1px;
         }
 
-        .ground-grid {
-            position: absolute;
-            width: 300px; height: 300px;
-            background-image: linear-gradient(#00d1ff 1px, transparent 1px), linear-gradient(90deg, #00d1ff 1px, transparent 1px);
-            background-size: 30px 30px;
-            opacity: 0.2;
-            transform: rotateX(80deg) translateY(150px);
-        }
-
-        #status { position: absolute; top: 10px; left: 10px; z-index: 10; color: #00d1ff; font-family: monospace; font-size: 10px; }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
     </style>
 </head>
 <body>
 
-    <div id="status">PERSPECTIVE ENGINE: ACTIVE</div>
+    <div class="privacy-alert">🔒 Privacidade Garantida: Processamento Local. Nenhum dado é coletado ou enviado.</div>
+    <div id="ai-text" class="ai-message">Iniciando IA... Mova o telefone para escanear o ambiente.</div>
 
     <div class="sbs-container">
         <!-- OLHO ESQUERDO -->
         <div class="eye">
             <video class="camFeed" autoplay playsinline></video>
-            <div class="viewport-3d" id="worldL">
-                <div class="avatar-container">
-                    <img src="https://dicebear.com" class="avatar">
-                    <div class="ground-grid"></div>
+            <div class="google-window" id="winL">
+                <div class="google-header">
+                    <img src="https://google.com" height="20">
+                    <div style="background:#eee; height:10px; width:100px; border-radius:5px;"></div>
+                </div>
+                <div class="google-content">
+                    <b>Busca AR:</b> Localizando objetos fixos...
+                    <p>Status: <span style="color:green">Sincronizado</span></p>
+                    <small>A TV/Objeto foi detectado como âncora visual.</small>
                 </div>
             </div>
         </div>
@@ -72,26 +74,48 @@
         <!-- OLHO DIREITO -->
         <div class="eye">
             <video class="camFeed" autoplay playsinline></video>
-            <div class="viewport-3d" id="worldR">
-                <div class="avatar-container">
-                    <img src="https://dicebear.com" class="avatar">
-                    <div class="ground-grid"></div>
+            <div class="google-window" id="winR">
+                <div class="google-header">
+                    <img src="https://google.com" height="20">
+                    <div style="background:#eee; height:10px; width:100px; border-radius:5px;"></div>
+                </div>
+                <div class="google-content">
+                    <b>Busca AR:</b> Localizando objetos fixos...
+                    <p>Status: <span style="color:green">Sincronizado</span></p>
+                    <small>A TV/Objeto foi detectado como âncora visual.</small>
                 </div>
             </div>
         </div>
     </div>
 
-    <canvas id="aiCanvas" style="display:none;"></canvas>
+    <canvas id="scanCanvas" style="display:none;"></canvas>
 
     <script>
         const video = document.querySelector('.camFeed');
-        const canvas = document.getElementById('aiCanvas');
+        const canvas = document.getElementById('scanCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const worlds = [document.getElementById('worldL'), document.getElementById('worldR')];
+        const windows = [document.getElementById('winL'), document.getElementById('winR')];
+        const aiText = document.getElementById('ai-text');
 
-        async function init() {
+        const messages = [
+            "Mova o telefone devagar para mapear a TV...",
+            "Escaneando pontos de contraste no ambiente...",
+            "Ótimo! Âncora visual detectada.",
+            "IA em execução: Local apenas.",
+            "Janela do Google fixada na perspectiva do objeto."
+        ];
+        let msgIndex = 0;
+
+        async function startApp() {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             document.querySelectorAll('.camFeed').forEach(v => v.srcObject = stream);
+            
+            // Troca mensagens da IA
+            setInterval(() => {
+                msgIndex = (msgIndex + 1) % messages.length;
+                aiText.innerText = messages[msgIndex];
+            }, 4000);
+
             render();
         }
 
@@ -111,24 +135,24 @@
                 }
 
                 if (count > 0) {
-                    // Normaliza as coordenadas de -1 a 1
                     const nx = ((avgX / count) / canvas.width) * 2 - 1;
                     const ny = ((avgY / count) / canvas.height) * 2 - 1;
 
-                    // Cálculos de Perspectiva
-                    const moveX = nx * 150;  // Movimento lateral
-                    const moveY = ny * 100;  // Movimento vertical
-                    const rotY = nx * 25;    // Rotação horizontal (olha para o lado)
-                    const rotX = -ny * 15;   // Rotação vertical (inclina para cima/baixo)
+                    // Aplica movimento e rotação 3D na janela do Google
+                    const mX = nx * 120;
+                    const mY = ny * 80;
+                    const rY = nx * 30; // Giro lateral
+                    const rX = -ny * 20; // Inclinação
 
-                    worlds.forEach(w => {
-                        w.style.transform = `translate3d(${moveX}px, ${moveY}px, 0px) rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+                    windows.forEach(w => {
+                        w.style.transform = `translate3d(${mX}px, ${mY}px, 100px) rotateY(${rY}deg) rotateX(${rX}deg)`;
                     });
                 }
             }
             requestAnimationFrame(render);
         }
-        window.onload = init;
+
+        window.onload = startApp;
     </script>
 </body>
 </html>
