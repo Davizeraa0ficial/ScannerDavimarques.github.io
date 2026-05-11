@@ -1,100 +1,134 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IA Vision - Davi Marques</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>VRChat AR - Perspectiva 3D</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; text-align: center; overflow: hidden; }
-        video { width: 100vw; height: 100vh; object-fit: cover; position: fixed; top: 0; left: 0; }
-        #mira { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 220px; height: 220px; border: 3px solid #0f0; border-radius: 10px; z-index: 50; box-shadow: 0 0 0 5000px rgba(0,0,0,0.8); pointer-events: none; }
-        #barra { position: fixed; top: 0; left: 0; height: 6px; background: #0f0; width: 0%; z-index: 101; transition: width 0.1s; }
-        .topo { position: fixed; top: 0; width: 100%; background: rgba(0,0,0,0.8); padding: 15px; z-index: 100; border-bottom: 2px solid #0f0; }
-        .botoes { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 110; }
-        button { padding: 15px 20px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; }
-        #btn-reg { background: #fff; color: #000; }
-        #btn-scan { background: #0f0; color: #000; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+        
+        .sbs-container { display: flex; width: 100vw; height: 100vh; perspective: 1000px; }
+        .eye { width: 50vw; height: 100vh; position: relative; overflow: hidden; border-right: 1px solid #222; perspective: 600px; }
+
+        video {
+            position: absolute; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1; opacity: 0.5;
+        }
+
+        /* O Container de Perspectiva */
+        .viewport-3d {
+            position: absolute;
+            width: 100%; height: 100%;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .avatar-container {
+            transform-style: preserve-3d;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .avatar { 
+            width: 140px; 
+            filter: drop-shadow(0 0 20px #00d1ff);
+            /* Dá volume ao avatar */
+            transform: translateZ(50px); 
+        }
+
+        .ground-grid {
+            position: absolute;
+            width: 300px; height: 300px;
+            background-image: linear-gradient(#00d1ff 1px, transparent 1px), linear-gradient(90deg, #00d1ff 1px, transparent 1px);
+            background-size: 30px 30px;
+            opacity: 0.2;
+            transform: rotateX(80deg) translateY(150px);
+        }
+
+        #status { position: absolute; top: 10px; left: 10px; z-index: 10; color: #00d1ff; font-family: monospace; font-size: 10px; }
     </style>
 </head>
 <body>
 
-    <div id="barra"></div>
-    <div class="topo">
-        <div id="status">Buscando desenho...</div>
-        <div id="stats" style="font-size:10px; color:#0f0">Padrão: 0%</div>
+    <div id="status">PERSPECTIVE ENGINE: ACTIVE</div>
+
+    <div class="sbs-container">
+        <!-- OLHO ESQUERDO -->
+        <div class="eye">
+            <video class="camFeed" autoplay playsinline></video>
+            <div class="viewport-3d" id="worldL">
+                <div class="avatar-container">
+                    <img src="https://dicebear.com" class="avatar">
+                    <div class="ground-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OLHO DIREITO -->
+        <div class="eye">
+            <video class="camFeed" autoplay playsinline></video>
+            <div class="viewport-3d" id="worldR">
+                <div class="avatar-container">
+                    <img src="https://dicebear.com" class="avatar">
+                    <div class="ground-grid"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div id="mira"></div>
-    <video id="video" playsinline></video>
-    <canvas id="p" style="display:none;"></canvas>
-
-    <div class="botoes">
-        <button id="btn-reg" onclick="salvarServidor()">CONFIGURAR MEU QR</button>
-        <button id="btn-scan" onclick="escanear()">ESCANEAR</button>
-    </div>
+    <canvas id="aiCanvas" style="display:none;"></canvas>
 
     <script>
-        const video = document.querySelector('video');
-        const canvas = document.querySelector('#p');
-        const status = document.querySelector('#status');
-        const stats = document.querySelector('#stats');
-        const barra = document.querySelector('#barra');
+        const video = document.querySelector('.camFeed');
+        const canvas = document.getElementById('aiCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const worlds = [document.getElementById('worldL'), document.getElementById('worldR')];
 
-        // Banco de dados compartilhado
-        const dbURL = "https://keyvalue.xyz";
-
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => { video.srcObject = s; video.play(); });
-
-        function gerarDNA() {
-            canvas.width = 40; canvas.height = 40;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, video.videoWidth/2-110, video.videoHeight/2-110, 220, 220, 0, 0, 40, 40);
-            const data = ctx.getImageData(0, 0, 40, 40).data;
-            let dna = "";
-            for (let i = 0; i < data.length; i += 4) {
-                dna += (data[i] + data[i+1] + data[i+2]) / 3 < 100 ? "1" : "0";
-            }
-            return dna;
+        async function init() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            document.querySelectorAll('.camFeed').forEach(v => v.srcObject = stream);
+            render();
         }
 
-        async function salvarServidor() {
-            const dna = gerarDNA();
-            let url = prompt("Qual site este desenho deve abrir?");
-            if (url) {
-                if (!url.startsWith("http")) url = "https://" + url;
-                status.innerText = "Sincronizando...";
-                await fetch(`${dbURL}/${dna}_SPLIT_${url}`, { method: 'POST' });
-                alert("Configurado!");
-                location.reload();
-            }
-        }
-
-        async function escanear() {
-            const dnaAtual = gerarDNA();
-            try {
-                const res = await fetch(dbURL);
-                const data = await res.text();
-                const parts = data.split("_SPLIT_");
-                if(parts.length < 2) return alert("Configure um site primeiro.");
+        function render() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = 40; canvas.height = 30;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 
-                const dnaSalvo = parts[0];
-                const linkSalvo = parts[1];
-
-                let acertos = 0;
-                for(let i=0; i<dnaSalvo.length; i++) { if(dnaSalvo[i] === dnaAtual[i]) acertos++; }
-                let sim = (acertos / dnaSalvo.length) * 100;
-
-                stats.innerText = `Padrão: ${Math.round(sim)}%`;
-                barra.style.width = sim + "%";
-
-                if (sim > 65) {
-                    status.innerText = "ABRINDO...";
-                    window.location.href = linkSalvo;
-                } else {
-                    alert("Não identificado.");
+                let avgX = 0, avgY = 0, count = 0;
+                for (let i = 0; i < frame.data.length; i += 4) {
+                    if ((frame.data[i] + frame.data[i+1] + frame.data[i+2])/3 > 160) {
+                        avgX += (i/4) % canvas.width;
+                        avgY += Math.floor((i/4) / canvas.width);
+                        count++;
+                    }
                 }
-            } catch (e) { alert("Erro ao acessar servidor."); }
+
+                if (count > 0) {
+                    // Normaliza as coordenadas de -1 a 1
+                    const nx = ((avgX / count) / canvas.width) * 2 - 1;
+                    const ny = ((avgY / count) / canvas.height) * 2 - 1;
+
+                    // Cálculos de Perspectiva
+                    const moveX = nx * 150;  // Movimento lateral
+                    const moveY = ny * 100;  // Movimento vertical
+                    const rotY = nx * 25;    // Rotação horizontal (olha para o lado)
+                    const rotX = -ny * 15;   // Rotação vertical (inclina para cima/baixo)
+
+                    worlds.forEach(w => {
+                        w.style.transform = `translate3d(${moveX}px, ${moveY}px, 0px) rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+                    });
+                }
+            }
+            requestAnimationFrame(render);
         }
+        window.onload = init;
     </script>
 </body>
 </html>
