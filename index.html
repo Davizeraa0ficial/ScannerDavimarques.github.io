@@ -2,38 +2,239 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>VRChat AR - AI Scanner & Google Glass</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IA com Rosto Customizado</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-        
-        .sbs-container { display: flex; width: 100vw; height: 100vh; perspective: 1200px; }
-        .eye { width: 50vw; height: 100vh; position: relative; overflow: hidden; border-right: 1px solid #333; perspective: 800px; }
-
-        video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; opacity: 0.4; }
-
-        /* Janela Estilo Google em Perspectiva */
-        .google-window {
-            position: absolute;
-            width: 280px; height: 180px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 12px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            z-index: 5;
-            display: flex; flex-direction: column;
-            overflow: hidden;
-            transform-style: preserve-3d;
-            transition: transform 0.1s ease-out;
+        body {
+            background-color: #0c0f1d;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
-        .google-header { background: #f2f2f2; padding: 8px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #ddd; }
-        .google-content { padding: 15px; color: #333; font-size: 13px; flex-grow: 1; }
+        .container {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 90%;
+            max-width: 450px;
+        }
+
+        /* Área de Upload */
+        .upload-box {
+            background-color: #161b33;
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px dashed #4ea8de;
+            font-size: 0.95rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        input[type="file"] {
+            margin-top: 10px;
+            color: #8fa0dd;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        /* Círculo do Rosto da IA */
+        .avatar-container {
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+            border: 4px solid #2e3860;
+            position: relative;
+            background-color: #161b33;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #status {
+            font-size: 1.1rem;
+            color: #8fa0dd;
+            font-weight: 500;
+            min-height: 28px;
+        }
+
+        /* Botão do Microfone */
+        .btn-mic {
+            background: linear-gradient(135deg, #4ea8de 0%, #5390d9 100%);
+            color: white;
+            border: none;
+            padding: 16px 45px;
+            border-radius: 30px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(83, 144, 217, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .btn-mic.gravando {
+            background: linear-gradient(135deg, #ff4d6d 0%, #ff758f 100%);
+            box-shadow: 0 4px 20px rgba(255, 77, 109, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- O usuário escolhe a imagem dele aqui -->
+        <div class="upload-box">
+            <label><strong>Passo 1:</strong> Escolha uma imagem de rosto</label>
+            <input type="file" id="uploadFoto" accept="image/*" onchange="carregarFotoUsuario(event)">
+        </div>
+
+        <div class="avatar-container">
+            <canvas id="faceCanvas" width="500" height="500"></canvas>
+        </div>
         
-        /* Balão de Mensagem da IA */
-        .ai-message {
-            position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 209, 255, 0.8);
-            color: white; padding: 12px 20px; border-radius: 30px;
+        <div id="status">Aguardando você colocar uma imagem...</div>
+        
+        <!-- Botão para interagir por voz -->
+        <button class="btn-mic" id="btnMic" onclick="alternarMicrofone()">Soltar a voz</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('faceCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('status');
+        const btnMic = document.getElementById('btnMic');
+        
+        const synth = window.speechSynthesis;
+        let recognition;
+        let isSpeaking = false;
+        let talkCycle = 0;
+        let mouthOpenY = 0;
+        let temImagem = false;
+
+        const imgRosto = new Image();
+
+        // Esta função pega o arquivo do seu PC e joga direto na IA
+        function carregarFotoUsuario(event) {
+            const arquivo = event.target.files[0];
+            if (!arquivo) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imgRosto.src = e.target.result;
+                imgRosto.onload = () => {
+                    temImagem = true;
+                    statusText.innerText = "Imagem carregada! Pode falar.";
+                    renderizar();
+                };
+            };
+            reader.readAsDataURL(arquivo);
+        }
+
+        // Reconhecimento de Voz por trás dos panos
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR';
+
+            recognition.onstart = () => {
+                btnMic.classList.add('gravando');
+                btnMic.innerText = "Ouvindo...";
+                statusText.innerText = "Estou te escutando...";
+            };
+
+            recognition.onend = () => {
+                btnMic.classList.remove('gravando');
+                btnMic.innerText = "Soltar a voz";
+            };
+
+            recognition.onresult = (event) => {
+                const texto = event.results[0].transcript;
+                processarRespostaIA(texto);
+            };
+        }
+
+        function alternarMicrofone() {
+            if (!temImagem) {
+                statusText.innerText = "⚠️ Coloque uma imagem antes de falar!";
+                return;
+            }
+            if (synth.speaking) synth.cancel();
+            try { recognition.start(); } catch(e) { recognition.stop(); }
+        }
+
+        // Cérebro de gírias e memes
+        function processarRespostaIA(fraseUsuario) {
+            const texto = fraseUsuario.toLowerCase();
+            let resposta = "Mano, entendi nada do que cê falou. Repete aí na moral!";
+
+            if (texto.includes("olá") || texto.includes("oi") || texto.includes("tudo bem")) {
+                resposta = "Salve, mano! Tudo suave por aqui, graças a Deus. Qual é a boa?";
+            } else if (texto.includes("triste") || texto.includes("ruim") || texto.includes("bad")) {
+                resposta = "Ah, fala sério, meu parceiro. Bateu a bad? Levanta a cabeça!";
+            } else if (texto.includes("calabreso") || texto.includes("raiva") || texto.includes("bravo")) {
+                resposta = "Eita, calma lá, calabreso! Pra que essa agressividade toda, véi?";
+            }
+
+            falar(resposta);
+        }
+
+        // Loop de animação que mexe a foto recortada
+        function renderizar() {
+            if (!temImagem) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Desenha o fundo com a foto do usuário
+            ctx.drawImage(imgRosto, 0, 0, canvas.width, canvas.height);
+
+            if (isSpeaking) {
+                talkCycle += 0.3;
+                mouthOpenY = Math.max(0, Math.sin(talkCycle) * 18); 
+
+                // Recorta a área da boca e queixo (Y=320) e empurra para baixo
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(0, 320, canvas.width, canvas.height - 320);
+                ctx.clip();
+
+                ctx.drawImage(imgRosto, 0, mouthOpenY, canvas.width, canvas.height);
+                ctx.restore();
+            }
+
+            requestAnimationFrame(renderizar);
+        }
+
+        function falar(texto) {
+            const utterance = new SpeechSynthesisUtterance(texto);
+            const voices = synth.getVoices();
+            utterance.voice = voices.find(voice => voice.lang.includes('pt')) || voices;
+            utterance.rate = 1.05;
+
+            utterance.onstart = () => {
+                isSpeaking = true;
+                statusText.innerText = "Falando...";
+            };
+
+            utterance.onend = () => {
+                isSpeaking = false;
+                mouthOpenY = 0;
+                statusText.innerText = "Pode falar de novo!";
+            };
+
+            synth.speak(utterance);
+        }
+    </script>
+</body>
+</html>
             font-size: 14px; z-index: 10; text-align: center;
             width: 80%; max-width: 300px;
             border: 2px solid #fff;
